@@ -1,83 +1,340 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Test AR #3</title>
-    <script src="https://aframe.io/releases/1.2.0/aframe.min.js"></script>
-    <script src="https://cdn.rawgit.com/jeromeetienne/AR.js/2.1.7/aframe/build/aframe-ar.js"></script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AR Video Player</title>
+    <meta
+      name="description"
+      content="Augmented Reality video player using custom marker"
+    />
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#1976d2" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+    <meta name="apple-mobile-web-app-title" content="AR Player" />
+
+    <!-- Updated to latest stable versions -->
+    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/AR-js-org/AR.js@3.4.5/aframe/build/aframe-ar.js"></script>
+
+    <!-- Configuration -->
+    <script src="config.js"></script>
+
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        font-family: Arial, sans-serif;
+      }
+
+      #loading {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: white;
+        font-size: 18px;
+        z-index: 1000;
+        display: none;
+      }
+
+      #error {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        background: rgba(255, 0, 0, 0.8);
+        color: white;
+        padding: 10px;
+        border-radius: 5px;
+        display: none;
+        z-index: 1000;
+      }
+
+      #info {
+        position: absolute;
+        bottom: 20px;
+        left: 20px;
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 10px;
+        border-radius: 5px;
+        font-size: 12px;
+        z-index: 1000;
+      }
+    </style>
   </head>
-  <body style="margin: 0; overflow: hidden">
-    <a-scene embedded arjs="sourceType: webcam; debugUIEnabled: false;">
-      <!-- Marker for tracking -->
+  <body>
+    <!-- Loading indicator -->
+    <div id="loading">Loading AR...</div>
+
+    <!-- Error display -->
+    <div id="error"></div>
+
+    <!-- Info panel -->
+    <div id="info">
+      <div>Marker: Custom Pattern</div>
+      <div id="markerStatus">Marker: Not Found</div>
+      <div id="videoStatus">Video: Paused</div>
+    </div>
+
+    <a-scene
+      embedded
+      arjs="sourceType: webcam; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
+      vr-mode-ui="enabled: false"
+      gesture-detector
+    >
+      <!-- Assets for better performance -->
+      <a-assets>
+        <video
+          id="videoAsset"
+          src="gigi.mp4"
+          preload="auto"
+          muted="true"
+          playsinline="true"
+          webkit-playsinline="true"
+          crossorigin="anonymous"
+        ></video>
+      </a-assets>
+
+      <!-- Marker for tracking with improved settings -->
       <a-marker
         type="pattern"
-        url="pattern-hiro.patt"
+        url="pattern-custom.patt"
         emitevents="true"
         id="marker"
+        smooth="true"
+        smoothCount="10"
+        smoothTolerance="0.01"
+        smoothThreshold="5"
+        raycaster="objects: .clickable"
       >
-        <!-- Video to display -->
+        <!-- Optimized video display -->
         <a-video
           id="videoPlane"
-          position="4 0 0"
+          position="0 0 0"
           rotation="-90 0 0"
           width="4"
           height="2.25"
-          src="gigi.mp4"
-          autoplay="true"
-          loop="true"
+          src="#videoAsset"
+          material="shader: flat; transparent: true; alphaTest: 0.1;"
+          class="clickable"
+          animation__mouseenter="property: scale; to: 1.1 1.1 1.1; startEvents: mouseenter; dur: 300"
+          animation__mouseleave="property: scale; to: 1 1 1; startEvents: mouseleave; dur: 300"
         ></a-video>
+
+        <!-- Optional: Add a frame around the video -->
+        <a-box
+          position="0 0 -0.01"
+          width="4.2"
+          height="2.45"
+          depth="0.02"
+          material="color: #333; transparent: true; opacity: 0.8;"
+        ></a-box>
       </a-marker>
       <!-- Camera to view the scene -->
       <a-entity camera></a-entity>
     </a-scene>
-    <!-- Script to handle video playback -->
+    <!-- Enhanced JavaScript with optimizations -->
     <script>
+      // DOM elements
       const videoPlane = document.getElementById("videoPlane");
       const marker = document.getElementById("marker");
+      const videoAsset = document.getElementById("videoAsset");
+      const loadingDiv = document.getElementById("loading");
+      const errorDiv = document.getElementById("error");
+      const markerStatus = document.getElementById("markerStatus");
+      const videoStatus = document.getElementById("videoStatus");
 
-      let isAnimationRunning = false; // To prevent multiple animations
+      // State management
+      let isAnimationRunning = false;
+      let isMarkerFound = false;
+      let videoReady = false;
+      let animationId = null;
 
+      // Show loading initially
+      loadingDiv.style.display = "block";
+
+      // Error handling function
+      function showError(message) {
+        console.error(message);
+        errorDiv.textContent = message;
+        errorDiv.style.display = "block";
+        setTimeout(() => {
+          errorDiv.style.display = "none";
+        }, 5000);
+      }
+
+      // Video event handlers
+      videoAsset.addEventListener("loadeddata", () => {
+        videoReady = true;
+        loadingDiv.style.display = "none";
+        console.log("Video loaded successfully");
+      });
+
+      videoAsset.addEventListener("error", (e) => {
+        showError("Error loading video: " + e.message);
+        videoReady = false;
+      });
+
+      videoAsset.addEventListener("play", () => {
+        videoStatus.textContent = "Video: Playing";
+      });
+
+      videoAsset.addEventListener("pause", () => {
+        videoStatus.textContent = "Video: Paused";
+      });
+
+      // Enhanced marker event handlers
       marker.addEventListener("markerFound", () => {
-        if (!isAnimationRunning) {
-          animatePosition(4, 0, 0, 1000); // Animates from (0, 0, 0) to (4, 0, 0) in 1 second
+        console.log("Marker found");
+        isMarkerFound = true;
+        markerStatus.textContent = "Marker: Found";
+
+        if (!isAnimationRunning && videoReady) {
+          animateToPosition(0, 0, 0, 800); // Smoother animation
         }
-        // Play video when marker is found
-        const videoElement = videoPlane.components.material.material.map.image;
-        if (videoElement && videoElement.play) {
-          videoElement.play();
+
+        // Enhanced video play with error handling
+        if (videoReady) {
+          videoAsset.play().catch((e) => {
+            showError("Error playing video: " + e.message);
+          });
         }
       });
 
       marker.addEventListener("markerLost", () => {
-        if (!isAnimationRunning) {
-          animatePosition(4, 0, 0, 1000); // Animates from (4, 0, 0) to (0, 0, 0) in 1 second
+        console.log("Marker lost");
+        isMarkerFound = false;
+        markerStatus.textContent = "Marker: Not Found";
+
+        if (!isAnimationRunning && videoReady) {
+          animateToPosition(0, 1, 0, 800); // Move up when lost
         }
+
         // Pause video when marker is lost
-        const videoElement = videoPlane.components.material.material.map.image;
-        if (videoElement && videoElement.pause) {
-          videoElement.pause();
+        if (videoReady) {
+          videoAsset.pause();
         }
       });
 
-      function animatePosition(startX, endX, endY, duration) {
+      // Optimized animation function with easing
+      function animateToPosition(targetX, targetY, targetZ, duration) {
+        if (isAnimationRunning) return;
+
         isAnimationRunning = true;
         const startTime = performance.now();
-        const startY = 0;
+        const startPos = videoPlane.getAttribute("position");
+        const startX = startPos.x;
+        const startY = startPos.y;
+        const startZ = startPos.z;
+
+        function easeInOutQuad(t) {
+          return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+        }
 
         function updatePosition(currentTime) {
           const elapsedTime = currentTime - startTime;
-          if (elapsedTime < duration) {
-            const newX = startX + (endX - startX) * (elapsedTime / duration);
-            const newY = startY + (endY - startY) * (elapsedTime / duration);
-            videoPlane.setAttribute("position", `${newX} ${newY} 0`);
-            requestAnimationFrame(updatePosition);
+          const progress = Math.min(elapsedTime / duration, 1);
+          const easedProgress = easeInOutQuad(progress);
+
+          const newX = startX + (targetX - startX) * easedProgress;
+          const newY = startY + (targetY - startY) * easedProgress;
+          const newZ = startZ + (targetZ - startZ) * easedProgress;
+
+          videoPlane.setAttribute("position", `${newX} ${newY} ${newZ}`);
+
+          if (progress < 1) {
+            animationId = requestAnimationFrame(updatePosition);
           } else {
-            videoPlane.setAttribute("position", `${endX} ${endY} 0`);
             isAnimationRunning = false;
+            animationId = null;
           }
         }
 
-        requestAnimationFrame(updatePosition);
+        animationId = requestAnimationFrame(updatePosition);
       }
+
+      // Performance monitoring
+      let lastFrameTime = performance.now();
+      function monitorPerformance() {
+        const currentTime = performance.now();
+        const deltaTime = currentTime - lastFrameTime;
+        const fps = Math.round(1000 / deltaTime);
+
+        if (fps < 30) {
+          console.warn("Low FPS detected:", fps);
+        }
+
+        lastFrameTime = currentTime;
+        requestAnimationFrame(monitorPerformance);
+      }
+
+      // Initialize performance monitoring
+      monitorPerformance();
+
+      // Register service worker for PWA
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker
+            .register("./sw.js")
+            .then((registration) => {
+              console.log("SW registered: ", registration);
+            })
+            .catch((registrationError) => {
+              console.log("SW registration failed: ", registrationError);
+            });
+        });
+      }
+
+      // Cleanup on page unload
+      window.addEventListener("beforeunload", () => {
+        if (animationId) {
+          cancelAnimationFrame(animationId);
+        }
+        if (videoAsset) {
+          videoAsset.pause();
+        }
+      });
+
+      // Touch/click interaction for mobile
+      videoPlane.addEventListener("click", () => {
+        if (videoReady) {
+          if (videoAsset.paused) {
+            videoAsset
+              .play()
+              .catch((e) => showError("Error playing video: " + e.message));
+          } else {
+            videoAsset.pause();
+          }
+        }
+      });
+
+      // Keyboard controls for testing
+      document.addEventListener("keydown", (e) => {
+        switch (e.key) {
+          case " ": // Spacebar
+            e.preventDefault();
+            if (videoReady) {
+              if (videoAsset.paused) {
+                videoAsset
+                  .play()
+                  .catch((e) => showError("Error playing video: " + e.message));
+              } else {
+                videoAsset.pause();
+              }
+            }
+            break;
+          case "r": // Reset position
+            videoPlane.setAttribute("position", "0 0 0");
+            break;
+        }
+      });
     </script>
   </body>
 </html>

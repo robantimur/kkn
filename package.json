@@ -1,0 +1,34 @@
+{
+  "name": "ar-video-player",
+  "version": "1.0.0",
+  "description": "Augmented Reality Video Player with Custom Marker",
+  "main": "index.html",
+  "scripts": {
+    "start": "http-server -p 8000 -c-1",
+    "dev": "http-server -p 8000 -c-1 --cors",
+    "build": "echo 'No build process needed for static files'",
+    "test": "echo 'No tests specified'"
+  },
+  "keywords": [
+    "ar",
+    "augmented-reality",
+    "aframe",
+    "arjs",
+    "video",
+    "marker",
+    "webxr"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yourusername/ar-video-player.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/ar-video-player/issues"
+  },
+  "homepage": "https://github.com/yourusername/ar-video-player#readme"
+}
